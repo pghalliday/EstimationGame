@@ -3,11 +3,9 @@ var expect = require('chai').expect,
     http = require('http');
 
 describe('index', function() {
-  var child;
-
   function start(args, env, callback) {
-    child = spawn('node', [
-      'Source/index.js'
+    var child = spawn('node', [
+      './Source/index.js'
     ].concat(args), {
       detached: false,
       stdio: 'pipe',
@@ -16,14 +14,14 @@ describe('index', function() {
     child.stdout.setEncoding();
     child.stdout.once('data', function(data) {
       if (data === 'Started\n') {
-        callback();
+        callback(child);
       } else {
-        callback(new Error('unexpected data'));
+        callback(child, new Error('unexpected data'));
       }
     });
   }
 
-  function stop(callback) {
+  function stop(child, callback) {
     child.once('exit', function(code, signal) {
       callback();
     });
@@ -46,36 +44,36 @@ describe('index', function() {
   }
 
   it('should start an EstimationGame server on port 8080 by default', function(done) {
-    start([], {}, function(error) {
+    start([], {PATH: process.env.PATH}, function(child, error) {
       if (error) {
         done(error);
       } else {
         getHomePage(8080, function() {
-          stop(done);
+          stop(child, done);
         });
       }
     });
   });
 
   it('should start an EstimationGame server on port process.env.PORT if set', function(done) {
-    start([], {PORT: 8000}, function(error) {
+    start([], {PATH: process.env.PATH, PORT: 8000}, function(child, error) {
       if (error) {
         done(error);
       } else {
         getHomePage(8000, function() {
-          stop(done);
+          stop(child, done);
         });
       }
     });
   });
 
   it('should start an EstimationGame server on the port passed in at the command line', function(done) {
-    start([5000], {PORT: 8000}, function(error) {
+    start([5000], {PATH: process.env.PATH, PORT: 8000}, function(child, error) {
       if (error) {
         done(error);
       } else {
         getHomePage(5000, function() {
-          stop(done);
+          stop(child, done);
         });
       }
     });
