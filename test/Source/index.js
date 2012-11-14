@@ -5,25 +5,33 @@ var expect = require('chai').expect,
 describe('index', function() {
   var child;
 
-  before(function(done) {
+  function start(args, env, callback) {
     child = spawn('node', [
       'Source/index.js'
-    ], {
+    ].concat(args), {
       detached: false,
-      stdio: 'pipe'
+      stdio: 'pipe',
+      env: env
     });
     child.stdout.setEncoding();
     child.stdout.once('data', function(data) {
       if (data === 'Started\n') {
-        done();
+        callback();
       } else {
-        done(new Error('unexpected data'));
+        callback(new Error('unexpected data'));
       }
     });
-  });
+  }
 
-  it('should start an HTTP server on port 8080', function(done) {
-    http.get('http://localhost:8080', function(response) {
+  function stop(callback) {
+    child.once('exit', function(code, signal) {
+      callback();
+    });
+    child.kill();
+  }
+
+  function getHomePage(port, callback) {
+    http.get('http://localhost:' + port, function(response) {
       var completeResponse = '';
       expect(response.statusCode === 200);
       response.setEncoding();
@@ -32,15 +40,44 @@ describe('index', function() {
       });
       response.on('end', function() {
         expect(completeResponse).to.contain('<!-- EstimationGame Home Page -->');
-        done();
+        callback();
       });
+    });
+  }
+
+  it('should start an EstimationGame server on port 8080 by default', function(done) {
+    start([], {}, function(error) {
+      if (error) {
+        done(error);
+      } else {
+        getHomePage(8080, function() {
+          stop(done);
+        });
+      }
     });
   });
 
-  after(function(done) {
-    child.once('exit', function(code, signal) {
-      done();
+  it('should start an EstimationGame server on port process.env.PORT if set', function(done) {
+    start([], {PORT: 8000}, function(error) {
+      if (error) {
+        done(error);
+      } else {
+        getHomePage(8000, function() {
+          stop(done);
+        });
+      }
     });
-    child.kill();
+  });
+
+  it('should start an EstimationGame server on the port passed in at the command line', function(done) {
+    start([5000], {PORT: 8000}, function(error) {
+      if (error) {
+        done(error);
+      } else {
+        getHomePage(5000, function() {
+          stop(done);
+        });
+      }
+    });
   });
 });
