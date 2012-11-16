@@ -1,4 +1,4 @@
-var expect = require('chai').expect,
+var expect = require('expect.js'),
     spawn = require('child_process').spawn,
     http = require('http');
 
