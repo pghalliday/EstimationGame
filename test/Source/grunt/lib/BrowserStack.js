@@ -1,6 +1,5 @@
 var expect = require('expect.js'),
-    BrowserStack = require('../../../../Source/grunt/lib/BrowserStack'),
-    http = require('http');
+    BrowserStack = require('../../../../Source/grunt/lib/BrowserStack');
 
 describe('BrowserStack', function() {
   it('should have a start method', function(done) {
