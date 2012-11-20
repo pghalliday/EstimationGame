@@ -17,6 +17,7 @@ module.exports = function(grunt) {
       if (error) {
         done(error);
       } else {
+        grunt.log.ok('BrowserStackTunnel has started');
         if (!self.data.keepAlive) {
           done();
         }
