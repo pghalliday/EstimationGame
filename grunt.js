@@ -45,16 +45,15 @@ module.exports = function(grunt) {
   // Project configuration.
   grunt.initConfig({
     lint: {
-      node: ['grunt.js', 'Source/**/*.js'],
-      nodeTest: ['Test/Source/**/*.js']
+      node: ['grunt.js', 'Source/**/*.js', 'Mocks/**/*.js'],
+      nodeTest: ['Test/**/*.js']
     },
     jshint: {
       node: getNodeLintConfig(),
       nodeTest: getNodeTestLintConfig()
     },
     mochaTest: {
-      test: ['Test/Source/**/*.js'],
-      doc: ['Test/Source/**/*.js']
+      test: ['Test/**/*.js']
     },
     mochaTestConfig: {
       test: {
@@ -69,7 +68,7 @@ module.exports = function(grunt) {
       }
     },
     watch: {
-      files: ['grunt.js', 'Source/**/*.js', 'Test/Source/**/*.js'],
+      files: ['grunt.js', 'Source/**/*.js', 'Mocks/**/*.js', 'Test/**/*.js'],
       tasks: ['default']
     },
     testacularServer: {
@@ -92,9 +91,6 @@ module.exports = function(grunt) {
 
   // Default task.
   grunt.registerTask('default', 'lint mochaTest:test');
-
-  // Documentation task.
-  grunt.registerTask('doc', 'mochaTest:doc');
 
   // Start services used for development
   grunt.registerTask('devstart', 'testacularServer browserStackTunnel');
