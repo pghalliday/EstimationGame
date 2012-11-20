@@ -35,15 +35,13 @@ function MockBrowserstackClient(mockBrowserstack, settings) {
   };
 
   self.getWorkers = function(callback) {
-
+    mockBrowserstack.getWorkers(callback);
   };
 }
 
 function MockBrowserstack(browsers, queueTime) {
-  var self = this;
-
-  self.workers = [];
-  self.queueTime = queueTime;
+  var self = this,
+      workers = [];
 
   var checkBrowser = function(settings, callback) {
     var isValid = false;
@@ -65,14 +63,14 @@ function MockBrowserstack(browsers, queueTime) {
     checkBrowser(settings, function(isValid) {
       if (isValid) {
         var worker = new MockBrowserstackWorker(settings);
-        self.workers[worker.id] = worker;
+        workers[worker.id] = worker;
 
         setTimeout(function() {
           worker.status = 'running';
         }, queueTime);
 
         setTimeout(function() {
-          delete self.workers[worker.id];
+          delete workers[worker.id];
         }, settings.timeout || DEFAULT_TERMINATION_TIME);
 
         callback(null, new MockBrowserstackWorker(worker));
@@ -83,12 +81,20 @@ function MockBrowserstack(browsers, queueTime) {
   };
 
   self.getWorker = function(id, callback) {
-    var worker = self.workers[id];
+    var worker = workers[id];
     if (worker) {
       callback(null, new MockBrowserstackWorker(worker));
     } else {
       callback(new Error('no such worker'));
     }
+  };
+
+  self.getWorkers = function(callback) {
+    var workersSnapshot = [];
+    Object.keys(workers).forEach(function(key) {
+      workersSnapshot.push(new MockBrowserstackWorker(workers[key]));
+    });
+    callback(null, workersSnapshot);
   };
 
   self.getBrowsers = function(callback) {

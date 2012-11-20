@@ -1,4 +1,5 @@
 var expect = require('expect.js'),
+    Checklist = require('checklist'),
     MockBrowserstack = require('../../Mocks/MockBrowserstack');
 
 var QUEUE_TIME = 500;
@@ -89,104 +90,129 @@ describe('MockBrowserstack', function() {
           });
         });
       });
+    });
 
-      describe('#getWorker', function() {
-        it('should error if there is no matching worker', function(done) {
-          client.getWorker('nonsense', function(error, worker) {
-            expect(error.message).to.equal('no such worker');
-            expect(worker).to.not.be.ok();
-            done();
-          });
+    describe('#getWorker', function() {
+      it('should error if there is no matching worker', function(done) {
+        client.getWorker('nonsense', function(error, worker) {
+          expect(error.message).to.equal('no such worker');
+          expect(worker).to.not.be.ok();
+          done();
         });
+      });
 
-        it('should initially return a copy of the worker returned by create worker', function(done) {
-          client.createWorker({
-            os: 'hello',
-            browser: 'goodbye',
-            version: 'huh'
-          }, function(error, worker1) {
-            if (error) {
-              expect().fail('could not create worker');
-            } else {
+      it('should initially return a copy of the worker returned by create worker', function(done) {
+        client.createWorker({
+          os: 'hello',
+          browser: 'goodbye',
+          version: 'huh'
+        }, function(error, worker1) {
+          if (error) {
+            expect().fail('could not create worker');
+          } else {
+            client.getWorker(worker1.id, function(error, worker2) {
+              if (error) {
+                expect().fail('could not get worker');
+              } else {
+                expect(worker2).to.not.equal(worker1);
+                expect(worker2.os).to.equal(worker1.os);
+                expect(worker2.browser).to.equal(worker1.browser);
+                expect(worker2.version).to.equal(worker1.version);
+                expect(worker2.id).to.equal(worker1.id);
+                expect(worker2.status).to.equal(worker1.status);
+                done();
+              }
+            });
+          }
+        });
+      });
+
+      it('should return a running worker after the queue time set in the MockBrowserstack instance', function(done) {
+        this.timeout(3000);
+        client.createWorker({
+          os: 'hello',
+          browser: 'goodbye',
+          version: 'huh'
+        }, function(error, worker1) {
+          if (error) {
+            expect().fail('could not create worker');
+          } else {
+            setTimeout(function() {
               client.getWorker(worker1.id, function(error, worker2) {
                 if (error) {
                   expect().fail('could not get worker');
                 } else {
-                  expect(worker2).to.not.equal(worker1);
-                  expect(worker2.os).to.equal(worker1.os);
-                  expect(worker2.browser).to.equal(worker1.browser);
-                  expect(worker2.version).to.equal(worker1.version);
-                  expect(worker2.id).to.equal(worker1.id);
-                  expect(worker2.status).to.equal(worker1.status);
+                  expect(worker1.status).to.equal('queue');
+                  expect(worker2.status).to.equal('running');
                   done();
                 }
               });
-            }
-          });
-        });
-
-        it('should return a running worker after the queue time set in the MockBrowserstack instance', function(done) {
-          this.timeout(3000);
-          client.createWorker({
-            os: 'hello',
-            browser: 'goodbye',
-            version: 'huh'
-          }, function(error, worker1) {
-            if (error) {
-              expect().fail('could not create worker');
-            } else {
-              setTimeout(function() {
-                client.getWorker(worker1.id, function(error, worker2) {
-                  if (error) {
-                    expect().fail('could not get worker');
-                  } else {
-                    expect(worker1.status).to.equal('queue');
-                    expect(worker2.status).to.equal('running');
-                    done();
-                  }
-                });
-              }, QUEUE_TIME);
-            }
-          });
-        });
-
-        it('should not be able to find a worker after the termination timeout set on creation', function(done) {
-          this.timeout(4000);
-          client.createWorker({
-            os: 'hello',
-            browser: 'goodbye',
-            version: 'huh',
-            timeout: TERMINATION_TIME
-          }, function(error, worker1) {
-            if (error) {
-              expect().fail('could not create worker');
-            } else {
-              setTimeout(function() {
-                client.getWorker(worker1.id, function(error, worker2) {
-                  expect(error.message).to.equal('no such worker');
-                  expect(worker2).to.not.be.ok();
-                  done();
-                });
-              }, TERMINATION_TIME);
-            }
-          });
+            }, QUEUE_TIME);
+          }
         });
       });
 
-      describe('#getWorkers', function() {
-        it('should return a snapshot array of all the workers currently active', function(done) {
-          // start a new MockBrowserstack and client instance for this test
-          mockBrowserstack = new MockBrowserstack(testBrowsers, QUEUE_TIME);
-          client = mockBrowserstack.createClient({
-            username: 'hello',
-            password: 'goodbye',
-            version: 'apple',
-            server: 'banana'
-          });
+      it('should not be able to find a worker after the termination timeout set on creation', function(done) {
+        this.timeout(4000);
+        client.createWorker({
+          os: 'hello',
+          browser: 'goodbye',
+          version: 'huh',
+          timeout: TERMINATION_TIME
+        }, function(error, worker1) {
+          if (error) {
+            expect().fail('could not create worker');
+          } else {
+            setTimeout(function() {
+              client.getWorker(worker1.id, function(error, worker2) {
+                expect(error.message).to.equal('no such worker');
+                expect(worker2).to.not.be.ok();
+                done();
+              });
+            }, TERMINATION_TIME);
+          }
+        });
+      });
+    });
 
-          // now we know that we have no active workers initially
-          // TODO
-          done();
+    describe('#getWorkers', function() {
+      it('should return a snapshot array of all the workers currently active', function(done) {
+        // start a new MockBrowserstack and client instance for this test
+        mockBrowserstack = new MockBrowserstack(testBrowsers, QUEUE_TIME);
+        client = mockBrowserstack.createClient({
+          username: 'hello',
+          password: 'goodbye',
+          version: 'apple',
+          server: 'banana'
+        });
+
+        // now we know that we have no active workers initially
+        var testWorkers = [];
+        var browserChecklist = new Checklist(testBrowsers, function(error) {
+          client.getWorkers(function(error, workers) {
+            // workers and testWorkers should be the same except the worker instances should be different
+            for (var index = 0; index < testWorkers.length; index++) {
+              var worker1 = testWorkers[index];
+              var worker2 = workers[index];
+              expect(worker2).to.not.equal(worker1);
+              expect(worker2.os).to.equal(worker1.os);
+              if (worker2.browser) {
+                expect(worker2.browser).to.equal(worker1.browser);
+              } else {
+                expect(worker2.device).to.equal(worker1.device);
+              }
+              expect(worker2.version).to.equal(worker1.version);
+              expect(worker2.id).to.equal(worker1.id);
+              expect(worker2.status).to.equal(worker1.status);
+            }
+            done();
+          });
+        });
+        testBrowsers.forEach(function(browser) {
+          client.createWorker(browser, function(error, worker) {
+            testWorkers.push(worker);
+            browserChecklist.check(browser);
+          });
         });
       });
     });
