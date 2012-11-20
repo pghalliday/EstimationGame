@@ -1,8 +1,8 @@
 var expect = require('expect.js'),
     MockBrowserstack = require('../../Mocks/MockBrowserstack');
 
-var QUEUE_TIME = 2000;
-var TERMINATION_TIME = 3000;
+var QUEUE_TIME = 500;
+var TERMINATION_TIME = 1000;
 
 describe('MockBrowserstack', function() {
   var testBrowsers = [{
