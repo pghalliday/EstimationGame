@@ -1,20 +1,33 @@
 var expect = require('expect.js'),
     Checklist = require('checklist'),
+    async = require('async'),
     MockBrowserstack = require('../../Mocks/MockBrowserstack');
 
-var BROWSERS = [{
+var VALID_BROWSER_1 = {
   os: 'apple',
   browser: 'banana',
   version: 'pear'
-}, {
+};
+var VALID_BROWSER_2 = {
   os: 'hello',
   browser: 'goodbye',
   version: 'huh'
-},{
+};
+var VALID_BROWSER_3 = {
   os: 'foo',
   device: 'bar',
   version: 'foobar'
-}];
+};
+var INVALID_BROWSER = {
+  os: 'invalid',
+  browser: 'invalid',
+  version: 'invalid'
+};
+var BROWSERS = [
+  VALID_BROWSER_1,
+  VALID_BROWSER_2,
+  VALID_BROWSER_3
+];
 var QUEUE_TIME = 200;
 var TERMINATION_TIME = 500;
 var SAFETY_TIME = 200;
@@ -34,6 +47,30 @@ describe('MockBrowserstack', function() {
       queueTime: QUEUE_TIME,
       username: USERNAME,
       password: PASSWORD
+    });
+  });
+
+  describe('#reset', function() {
+    it('should terminate all workers', function(done) {
+      var client = mockBrowserstack.createClient({
+        username: USERNAME,
+        password: PASSWORD,
+        version: 'apple',
+        server: 'banana'
+      });
+      async.forEach(BROWSERS, function(browser, callback) {
+        client.createWorker(browser, function(error, worker) {
+          callback();
+        });
+      }, function(error) {
+        // error should be nothing as we never callback with one!
+        mockBrowserstack.reset();
+        client.getWorkers(function(error, workers) {
+          expect(error).to.not.be.ok();
+          expect(workers.length).to.equal(0);
+          done();
+        });
+      });
     });
   });
 
@@ -122,11 +159,7 @@ describe('MockBrowserstack', function() {
       });
 
       it('should error if the browser is invalid', function(done) {
-        authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'boo',
-          version: 'huh'
-        }, function(error, worker) {
+        authorizedClient.createWorker(INVALID_BROWSER, function(error, worker) {
           expect(error.message).to.equal('invalid browser settings');
           expect(worker).to.not.be.ok();
           done();
@@ -135,28 +168,28 @@ describe('MockBrowserstack', function() {
 
       it('should create workers with correct settings, unique IDs and intitial status of "queue"', function(done) {
         authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh',
+          os: VALID_BROWSER_1.os,
+          browser: VALID_BROWSER_1.browser,
+          version: VALID_BROWSER_1.version,
           url: 'my url'
         }, function(error, worker1) {
           expect(error).to.not.be.ok();
-          expect(worker1.os).to.equal('hello');
-          expect(worker1.browser).to.equal('goodbye');
-          expect(worker1.version).to.equal('huh');
+          expect(worker1.os).to.equal(VALID_BROWSER_1.os);
+          expect(worker1.browser).to.equal(VALID_BROWSER_1.browser);
+          expect(worker1.version).to.equal(VALID_BROWSER_1.version);
           expect(worker1.id).to.be.ok();
           expect(worker1.status).to.equal('queue');
           expect(worker1.url).to.equal('my url');
           authorizedClient.createWorker({
-            os: 'foo',
-            device: 'bar',
-            version: 'foobar',
+            os: VALID_BROWSER_2.os,
+            browser: VALID_BROWSER_2.browser,
+            version: VALID_BROWSER_2.version,
             url: 'another url'
           }, function(error, worker2) {
             expect(error).to.not.be.ok();
-            expect(worker2.os).to.equal('foo');
-            expect(worker2.device).to.equal('bar');
-            expect(worker2.version).to.equal('foobar');
+            expect(worker2.os).to.equal(VALID_BROWSER_2.os);
+            expect(worker2.browser).to.equal(VALID_BROWSER_2.browser);
+            expect(worker2.version).to.equal(VALID_BROWSER_2.version);
             expect(worker2.id).to.be.ok();
             expect(worker2.id).to.not.eql(worker1.id);
             expect(worker2.status).to.equal('queue');
@@ -189,11 +222,7 @@ describe('MockBrowserstack', function() {
       });
 
       it('should initially return a copy of the worker returned by create worker', function(done) {
-        authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh'
-        }, function(error, worker1) {
+        authorizedClient.createWorker(VALID_BROWSER_1, function(error, worker1) {
           if (error) {
             expect().fail('could not create worker');
           } else {
@@ -216,11 +245,7 @@ describe('MockBrowserstack', function() {
 
       it('should return a running worker after the queue time set in the MockBrowserstack instance', function(done) {
         this.timeout(3000);
-        authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh'
-        }, function(error, worker1) {
+        authorizedClient.createWorker(VALID_BROWSER_1, function(error, worker1) {
           if (error) {
             expect().fail('could not create worker');
           } else {
@@ -242,9 +267,9 @@ describe('MockBrowserstack', function() {
       it('should not be able to find a worker after the termination timeout set on creation', function(done) {
         this.timeout(4000);
         authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh',
+          os: VALID_BROWSER_1.os,
+          browser: VALID_BROWSER_1.browser,
+          version: VALID_BROWSER_1.version,
           timeout: TERMINATION_TIME
         }, function(error, worker1) {
           if (error) {
@@ -328,11 +353,7 @@ describe('MockBrowserstack', function() {
       });
 
       it('should report 0 active time if stopped while queued', function(done) {
-        authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh'
-        }, function(error, worker1) {
+        authorizedClient.createWorker(VALID_BROWSER_1, function(error, worker1) {
           if (error) {
             expect().fail('could not create worker');
           } else {
@@ -351,11 +372,7 @@ describe('MockBrowserstack', function() {
 
       it('should terminate a worker and report the length of time it was alive', function(done) {
         this.timeout(4000);
-        authorizedClient.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh'
-        }, function(error, worker1) {
+        authorizedClient.createWorker(VALID_BROWSER_1, function(error, worker1) {
           if (error) {
             expect().fail('could not create worker');
           } else {

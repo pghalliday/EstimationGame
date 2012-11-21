@@ -159,6 +159,10 @@ function MockBrowserstack(options) {
     });
   };
 
+  self.reset = function() {
+    workers = [];
+  };
+
   self.createClient = function(settings) {
     return new MockBrowserstackClient(self, settings);
   };
