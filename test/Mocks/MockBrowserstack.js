@@ -2,54 +2,127 @@ var expect = require('expect.js'),
     Checklist = require('checklist'),
     MockBrowserstack = require('../../Mocks/MockBrowserstack');
 
-var QUEUE_TIME = 500;
-var TERMINATION_TIME = 1000;
-var SAFETY_TIME = 500;
+var BROWSERS = [{
+  os: 'apple',
+  browser: 'banana',
+  version: 'pear'
+}, {
+  os: 'hello',
+  browser: 'goodbye',
+  version: 'huh'
+},{
+  os: 'foo',
+  device: 'bar',
+  version: 'foobar'
+}];
+var QUEUE_TIME = 200;
+var TERMINATION_TIME = 500;
+var SAFETY_TIME = 200;
 var ACCEPTABLE_TIME_VARIANCE = 50;
+var USERNAME = 'username';
+var PASSWORD = 'password';
+var BAD_USERNAME = 'badusername';
+var BAD_PASSWORD = 'badpassword';
+var BAD_WORKER_ID = 'nonsense';
 
 describe('MockBrowserstack', function() {
-  var testBrowsers = [{
-    os: 'apple',
-    browser: 'banana',
-    version: 'pear'
-  }, {
-    os: 'hello',
-    browser: 'goodbye',
-    version: 'huh'
-  },{
-    os: 'foo',
-    device: 'bar',
-    version: 'foobar'
-  }];
-  var mockBrowserstack = new MockBrowserstack(testBrowsers, QUEUE_TIME);
+  var mockBrowserstack;
+
+  beforeEach(function() {
+    mockBrowserstack = new MockBrowserstack({
+      browsers: BROWSERS,
+      queueTime: QUEUE_TIME,
+      username: USERNAME,
+      password: PASSWORD
+    });
+  });
 
   describe('#createClient', function() {
-    var client = mockBrowserstack.createClient({
-      username: 'hello',
-      password: 'goodbye',
-      version: 'apple',
-      server: 'banana'
-    });
+    var authorizedClient;
+    var badPasswordClient;
+    var badUsernameClient;
+
+    beforeEach(function() {
+      authorizedClient = mockBrowserstack.createClient({
+        username: USERNAME,
+        password: PASSWORD,
+        version: 'apple',
+        server: 'banana'
+      });
+      badPasswordClient = mockBrowserstack.createClient({
+        username: USERNAME,
+        password: BAD_PASSWORD,
+        version: 'foo',
+        server: 'bar'
+      });
+      badUsernameClient = mockBrowserstack.createClient({
+        username: BAD_USERNAME,
+        password: PASSWORD,
+        version: 'hello',
+        server: 'goodbye'
+      });
+    });    
 
     it('should expose settings', function() {
-      expect(client.username).to.equal('hello');
-      expect(client.password).to.equal('goodbye');
-      expect(client.version).to.equal('apple');
-      expect(client.server).to.equal('banana');
+      expect(authorizedClient.username).to.equal(USERNAME);
+      expect(authorizedClient.password).to.equal(PASSWORD);
+      expect(authorizedClient.version).to.equal('apple');
+      expect(authorizedClient.server).to.equal('banana');
+      expect(badPasswordClient.username).to.equal(USERNAME);
+      expect(badPasswordClient.password).to.equal(BAD_PASSWORD);
+      expect(badPasswordClient.version).to.equal('foo');
+      expect(badPasswordClient.server).to.equal('bar');
+      expect(badUsernameClient.username).to.equal(BAD_USERNAME);
+      expect(badUsernameClient.password).to.equal(PASSWORD);
+      expect(badUsernameClient.version).to.equal('hello');
+      expect(badUsernameClient.server).to.equal('goodbye');
     });
 
     describe('#getBrowsers', function() {
+      it('should error if client is unauthorized', function(done) {
+        badPasswordClient.getBrowsers(function(error, browsers) {
+          expect(error.message).to.equal('not authorized');
+          expect(browsers).to.not.be.ok();
+          badUsernameClient.getBrowsers(function(error, browsers) {
+            expect(error.message).to.equal('not authorized');
+            expect(browsers).to.not.be.ok();
+            done();
+          });
+        });
+      });
+
       it('should return the browsers', function(done) {
-        client.getBrowsers(function(error, browsers) {
-          expect(browsers).to.equal(testBrowsers);
+        authorizedClient.getBrowsers(function(error, browsers) {
+          expect(error).to.not.be.ok();
+          expect(browsers).to.equal(BROWSERS);
           done();
         });
       });
     });
 
     describe('#createWorker', function() {
+      it('should error if client is unauthorized', function(done) {
+        badPasswordClient.createWorker({
+          os: 'hello',
+          browser: 'boo',
+          version: 'huh'
+        }, function(error, worker) {
+          expect(error.message).to.equal('not authorized');
+          expect(worker).to.not.be.ok();
+          badUsernameClient.createWorker({
+            os: 'hello',
+            browser: 'boo',
+            version: 'huh'
+          }, function(error, worker) {
+            expect(error.message).to.equal('not authorized');
+            expect(worker).to.not.be.ok();
+            done();
+          });
+        });
+      });
+
       it('should error if the browser is invalid', function(done) {
-        client.createWorker({
+        authorizedClient.createWorker({
           os: 'hello',
           browser: 'boo',
           version: 'huh'
@@ -61,7 +134,7 @@ describe('MockBrowserstack', function() {
       });
 
       it('should create workers with correct settings, unique IDs and intitial status of "queue"', function(done) {
-        client.createWorker({
+        authorizedClient.createWorker({
           os: 'hello',
           browser: 'goodbye',
           version: 'huh',
@@ -74,7 +147,7 @@ describe('MockBrowserstack', function() {
           expect(worker1.id).to.be.ok();
           expect(worker1.status).to.equal('queue');
           expect(worker1.url).to.equal('my url');
-          client.createWorker({
+          authorizedClient.createWorker({
             os: 'foo',
             device: 'bar',
             version: 'foobar',
@@ -95,8 +168,20 @@ describe('MockBrowserstack', function() {
     });
 
     describe('#getWorker', function() {
+      it('should error if client is unauthorized', function(done) {
+        badPasswordClient.getWorker(BAD_WORKER_ID, function(error, worker) {
+          expect(error.message).to.equal('not authorized');
+          expect(worker).to.not.be.ok();
+          badUsernameClient.getWorker(BAD_WORKER_ID, function(error, worker) {
+            expect(error.message).to.equal('not authorized');
+            expect(worker).to.not.be.ok();
+            done();
+          });
+        });
+      });
+
       it('should error if there is no matching worker', function(done) {
-        client.getWorker('nonsense', function(error, worker) {
+        authorizedClient.getWorker(BAD_WORKER_ID, function(error, worker) {
           expect(error.message).to.equal('no such worker');
           expect(worker).to.not.be.ok();
           done();
@@ -104,7 +189,7 @@ describe('MockBrowserstack', function() {
       });
 
       it('should initially return a copy of the worker returned by create worker', function(done) {
-        client.createWorker({
+        authorizedClient.createWorker({
           os: 'hello',
           browser: 'goodbye',
           version: 'huh'
@@ -112,7 +197,7 @@ describe('MockBrowserstack', function() {
           if (error) {
             expect().fail('could not create worker');
           } else {
-            client.getWorker(worker1.id, function(error, worker2) {
+            authorizedClient.getWorker(worker1.id, function(error, worker2) {
               if (error) {
                 expect().fail('could not get worker');
               } else {
@@ -131,7 +216,7 @@ describe('MockBrowserstack', function() {
 
       it('should return a running worker after the queue time set in the MockBrowserstack instance', function(done) {
         this.timeout(3000);
-        client.createWorker({
+        authorizedClient.createWorker({
           os: 'hello',
           browser: 'goodbye',
           version: 'huh'
@@ -140,7 +225,7 @@ describe('MockBrowserstack', function() {
             expect().fail('could not create worker');
           } else {
             setTimeout(function() {
-              client.getWorker(worker1.id, function(error, worker2) {
+              authorizedClient.getWorker(worker1.id, function(error, worker2) {
                 if (error) {
                   expect().fail('could not get worker');
                 } else {
@@ -156,7 +241,7 @@ describe('MockBrowserstack', function() {
 
       it('should not be able to find a worker after the termination timeout set on creation', function(done) {
         this.timeout(4000);
-        client.createWorker({
+        authorizedClient.createWorker({
           os: 'hello',
           browser: 'goodbye',
           version: 'huh',
@@ -166,7 +251,7 @@ describe('MockBrowserstack', function() {
             expect().fail('could not create worker');
           } else {
             setTimeout(function() {
-              client.getWorker(worker1.id, function(error, worker2) {
+              authorizedClient.getWorker(worker1.id, function(error, worker2) {
                 expect(error.message).to.equal('no such worker');
                 expect(worker2).to.not.be.ok();
                 done();
@@ -178,20 +263,22 @@ describe('MockBrowserstack', function() {
     });
 
     describe('#getWorkers', function() {
-      it('should return a snapshot array of all the workers currently active', function(done) {
-        // start a new MockBrowserstack and client instance for this test
-        mockBrowserstack = new MockBrowserstack(testBrowsers, QUEUE_TIME);
-        client = mockBrowserstack.createClient({
-          username: 'hello',
-          password: 'goodbye',
-          version: 'apple',
-          server: 'banana'
+      it('should error if client is unauthorized', function(done) {
+        badPasswordClient.getWorkers(function(error, workers) {
+          expect(error.message).to.equal('not authorized');
+          expect(workers).to.not.be.ok();
+          badUsernameClient.getWorkers(function(error, workers) {
+            expect(error.message).to.equal('not authorized');
+            expect(workers).to.not.be.ok();
+            done();
+          });
         });
+      });
 
-        // now we know that we have no active workers initially
+      it('should return a snapshot array of all the workers currently active', function(done) {
         var testWorkers = [];
-        var browserChecklist = new Checklist(testBrowsers, function(error) {
-          client.getWorkers(function(error, workers) {
+        var browserChecklist = new Checklist(BROWSERS, function(error) {
+          authorizedClient.getWorkers(function(error, workers) {
             // workers and testWorkers should be the same except the worker instances should be different
             for (var index = 0; index < testWorkers.length; index++) {
               var worker1 = testWorkers[index];
@@ -210,8 +297,8 @@ describe('MockBrowserstack', function() {
             done();
           });
         });
-        testBrowsers.forEach(function(browser) {
-          client.createWorker(browser, function(error, worker) {
+        BROWSERS.forEach(function(browser) {
+          authorizedClient.createWorker(browser, function(error, worker) {
             testWorkers.push(worker);
             browserChecklist.check(browser);
           });
@@ -220,9 +307,51 @@ describe('MockBrowserstack', function() {
     });
 
     describe('#terminateWorker', function() {
+      it('should error if client is unauthorized', function(done) {
+        badPasswordClient.terminateWorker(BAD_WORKER_ID, function(error, data) {
+          expect(error.message).to.equal('not authorized');
+          expect(data).to.not.be.ok();
+          badUsernameClient.terminateWorker(BAD_WORKER_ID, function(error, data) {
+            expect(error.message).to.equal('not authorized');
+            expect(data).to.not.be.ok();
+            done();
+          });
+        });
+      });
+
+      it('should error if the worker is not running or queued', function(done) {
+        authorizedClient.terminateWorker(BAD_WORKER_ID, function(error, data) {
+          expect(error.message).to.equal('no such worker');
+          expect(data).to.not.be.ok();
+          done();
+        });
+      });
+
+      it('should report 0 active time if stopped while queued', function(done) {
+        authorizedClient.createWorker({
+          os: 'hello',
+          browser: 'goodbye',
+          version: 'huh'
+        }, function(error, worker1) {
+          if (error) {
+            expect().fail('could not create worker');
+          } else {
+            authorizedClient.terminateWorker(worker1.id, function(error, data) {
+              expect(error).to.not.be.ok();
+              expect(data.time).to.equal(0);
+              authorizedClient.getWorker(worker1.id, function(error, worker2) {
+                expect(error.message).to.equal('no such worker');
+                expect(worker2).to.not.be.ok();
+                done();
+              });
+            });
+          }
+        });        
+      });
+
       it('should terminate a worker and report the length of time it was alive', function(done) {
         this.timeout(4000);
-        client.createWorker({
+        authorizedClient.createWorker({
           os: 'hello',
           browser: 'goodbye',
           version: 'huh'
@@ -231,46 +360,16 @@ describe('MockBrowserstack', function() {
             expect().fail('could not create worker');
           } else {
             setTimeout(function() {
-              client.terminateWorker(worker1.id, function(error, data) {
+              authorizedClient.terminateWorker(worker1.id, function(error, data) {
                 expect(error).to.not.be.ok();
                 expect(data.time).to.be.within(TERMINATION_TIME - ACCEPTABLE_TIME_VARIANCE, TERMINATION_TIME + ACCEPTABLE_TIME_VARIANCE);
-                client.getWorker(worker1.id, function(error, worker2) {
+                authorizedClient.getWorker(worker1.id, function(error, worker2) {
                   expect(error.message).to.equal('no such worker');
                   expect(worker2).to.not.be.ok();
                   done();
                 });
               });
             }, TERMINATION_TIME + QUEUE_TIME);
-          }
-        });        
-      });
-
-      it('should error if the worker is not running or queued', function(done) {
-        client.terminateWorker('nonsense', function(error, data) {
-          expect(error.message).to.equal('no such worker');
-          expect(data).to.not.be.ok();
-          done();
-        });
-      });
-
-      it('should report 0 active time if stopped while queued', function(done) {
-        client.createWorker({
-          os: 'hello',
-          browser: 'goodbye',
-          version: 'huh'
-        }, function(error, worker1) {
-          if (error) {
-            expect().fail('could not create worker');
-          } else {
-            client.terminateWorker(worker1.id, function(error, data) {
-              expect(error).to.not.be.ok();
-              expect(data.time).to.equal(0);
-              client.getWorker(worker1.id, function(error, worker2) {
-                expect(error.message).to.equal('no such worker');
-                expect(worker2).to.not.be.ok();
-                done();
-              });
-            });
           }
         });        
       });

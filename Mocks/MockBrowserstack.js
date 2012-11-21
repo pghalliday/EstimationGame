@@ -24,33 +24,41 @@ function MockBrowserstackClient(mockBrowserstack, settings) {
   self.server = settings.server;
 
   self.getBrowsers = function(callback) {
-    mockBrowserstack.getBrowsers(callback);
+    mockBrowserstack.getBrowsers(self, callback);
   };
 
   self.createWorker = function(settings, callback) {
-    mockBrowserstack.createWorker(settings, callback);
+    mockBrowserstack.createWorker(self, settings, callback);
   };
 
   self.getWorker = function(id, callback) {
-    mockBrowserstack.getWorker(id, callback);
+    mockBrowserstack.getWorker(self, id, callback);
   };
 
   self.getWorkers = function(callback) {
-    mockBrowserstack.getWorkers(callback);
+    mockBrowserstack.getWorkers(self, callback);
   };
 
   self.terminateWorker = function(id, callback) {
-    mockBrowserstack.terminateWorker(id, callback);
+    mockBrowserstack.terminateWorker(self, id, callback);
   };
 }
 
-function MockBrowserstack(browsers, queueTime) {
+function MockBrowserstack(options) {
   var self = this,
       workers = [];
 
-  var checkBrowser = function(settings, callback) {
+  function isAuthorized(client, callback) {
+    if (client.username === options.username && client.password === options.password) {
+      callback();
+    } else {
+      callback(new Error('not authorized'));
+    }
+  }
+
+  function checkBrowser(settings, callback) {
     var isValid = false;
-    browsers.forEach(function(browser) {
+    options.browsers.forEach(function(browser) {
       if (
         browser.os === settings.os && (
           (browser.device && browser.device === settings.device) || 
@@ -62,63 +70,93 @@ function MockBrowserstack(browsers, queueTime) {
       }
     });
     callback(isValid);
-  };
+  }
 
-  self.createWorker = function(settings, callback) {
-    checkBrowser(settings, function(isValid) {
-      if (isValid) {
-        var worker = new MockBrowserstackWorker(settings);
-        workers[worker.id] = worker;
-
-        setTimeout(function() {
-          worker.status = 'running';
-          worker.started = new Date().getTime();
-          setTimeout(function() {
-            delete workers[worker.id];
-          }, settings.timeout || DEFAULT_TERMINATION_TIME);
-        }, queueTime || DEFAULT_QUEUE_TIME);
-
-        callback(null, new MockBrowserstackWorker(worker));
+  self.getBrowsers = function(client, callback) {
+    isAuthorized(client, function(error) {
+      if (error) {
+        callback(error);
       } else {
-        callback(new Error('invalid browser settings'));
+        callback(null, options.browsers);
       }
     });
   };
 
-  self.getWorker = function(id, callback) {
-    var worker = workers[id];
-    if (worker) {
-      callback(null, new MockBrowserstackWorker(worker));
-    } else {
-      callback(new Error('no such worker'));
-    }
-  };
+  self.createWorker = function(client, settings, callback) {
+    isAuthorized(client, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        checkBrowser(settings, function(isValid) {
+          if (isValid) {
+            var worker = new MockBrowserstackWorker(settings);
+            workers[worker.id] = worker;
 
-  self.getWorkers = function(callback) {
-    var workersSnapshot = [];
-    Object.keys(workers).forEach(function(key) {
-      workersSnapshot.push(new MockBrowserstackWorker(workers[key]));
-    });
-    callback(null, workersSnapshot);
-  };
+            setTimeout(function() {
+              worker.status = 'running';
+              worker.started = new Date().getTime();
+              setTimeout(function() {
+                delete workers[worker.id];
+              }, settings.timeout || DEFAULT_TERMINATION_TIME);
+            }, options.queueTime || DEFAULT_QUEUE_TIME);
 
-  self.terminateWorker = function(id, callback) {
-    var now = new Date().getTime();
-    var worker = workers[id];
-    if (worker) {
-      var time = 0;
-      if (worker.started) {
-        time = now - worker.started;
+            callback(null, new MockBrowserstackWorker(worker));
+          } else {
+            callback(new Error('invalid browser settings'));
+          }
+        });
       }
-      delete workers[id];
-      callback(null, {time: time});
-    } else {
-      callback(new Error('no such worker'));      
-    }
+    });
   };
 
-  self.getBrowsers = function(callback) {
-    callback(null, browsers);
+  self.getWorker = function(client, id, callback) {
+    isAuthorized(client, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        var worker = workers[id];
+        if (worker) {
+          callback(null, new MockBrowserstackWorker(worker));
+        } else {
+          callback(new Error('no such worker'));
+        }
+      }
+    });
+  };
+
+  self.getWorkers = function(client, callback) {
+    isAuthorized(client, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        var workersSnapshot = [];
+        Object.keys(workers).forEach(function(key) {
+          workersSnapshot.push(new MockBrowserstackWorker(workers[key]));
+        });
+        callback(null, workersSnapshot);
+      }
+    });
+  };
+
+  self.terminateWorker = function(client, id, callback) {
+    isAuthorized(client, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+      var now = new Date().getTime();
+        var worker = workers[id];
+        if (worker) {
+          var time = 0;
+          if (worker.started) {
+            time = now - worker.started;
+          }
+          delete workers[id];
+          callback(null, {time: time});
+        } else {
+          callback(new Error('no such worker'));      
+        }
+      }
+    });
   };
 
   self.createClient = function(settings) {
