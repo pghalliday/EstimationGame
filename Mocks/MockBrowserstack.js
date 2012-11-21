@@ -1,6 +1,7 @@
 var expect = require('expect.js'),
     uuid = require('node-uuid');
 
+var DEFAULT_QUEUE_TIME = 1000;
 var DEFAULT_TERMINATION_TIME = 1800 * 1000;
 
 function MockBrowserstackWorker(settings) {
@@ -37,6 +38,10 @@ function MockBrowserstackClient(mockBrowserstack, settings) {
   self.getWorkers = function(callback) {
     mockBrowserstack.getWorkers(callback);
   };
+
+  self.terminateWorker = function(id, callback) {
+    mockBrowserstack.terminateWorker(id, callback);
+  };
 }
 
 function MockBrowserstack(browsers, queueTime) {
@@ -67,11 +72,11 @@ function MockBrowserstack(browsers, queueTime) {
 
         setTimeout(function() {
           worker.status = 'running';
-        }, queueTime);
-
-        setTimeout(function() {
-          delete workers[worker.id];
-        }, settings.timeout || DEFAULT_TERMINATION_TIME);
+          worker.started = new Date().getTime();
+          setTimeout(function() {
+            delete workers[worker.id];
+          }, settings.timeout || DEFAULT_TERMINATION_TIME);
+        }, queueTime || DEFAULT_QUEUE_TIME);
 
         callback(null, new MockBrowserstackWorker(worker));
       } else {
@@ -95,6 +100,21 @@ function MockBrowserstack(browsers, queueTime) {
       workersSnapshot.push(new MockBrowserstackWorker(workers[key]));
     });
     callback(null, workersSnapshot);
+  };
+
+  self.terminateWorker = function(id, callback) {
+    var now = new Date().getTime();
+    var worker = workers[id];
+    if (worker) {
+      var time = 0;
+      if (worker.started) {
+        time = now - worker.started;
+      }
+      delete workers[id];
+      callback(null, {time: time});
+    } else {
+      callback(new Error('no such worker'));      
+    }
   };
 
   self.getBrowsers = function(callback) {

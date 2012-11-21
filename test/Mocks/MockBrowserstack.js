@@ -4,6 +4,8 @@ var expect = require('expect.js'),
 
 var QUEUE_TIME = 500;
 var TERMINATION_TIME = 1000;
+var SAFETY_TIME = 500;
+var ACCEPTABLE_TIME_VARIANCE = 50;
 
 describe('MockBrowserstack', function() {
   var testBrowsers = [{
@@ -147,7 +149,7 @@ describe('MockBrowserstack', function() {
                   done();
                 }
               });
-            }, QUEUE_TIME);
+            }, QUEUE_TIME + SAFETY_TIME);
           }
         });
       });
@@ -169,7 +171,7 @@ describe('MockBrowserstack', function() {
                 expect(worker2).to.not.be.ok();
                 done();
               });
-            }, TERMINATION_TIME);
+            }, TERMINATION_TIME + QUEUE_TIME + SAFETY_TIME);
           }
         });
       });
@@ -214,6 +216,63 @@ describe('MockBrowserstack', function() {
             browserChecklist.check(browser);
           });
         });
+      });
+    });
+
+    describe('#terminateWorker', function() {
+      it('should terminate a worker and report the length of time it was alive', function(done) {
+        this.timeout(4000);
+        client.createWorker({
+          os: 'hello',
+          browser: 'goodbye',
+          version: 'huh'
+        }, function(error, worker1) {
+          if (error) {
+            expect().fail('could not create worker');
+          } else {
+            setTimeout(function() {
+              client.terminateWorker(worker1.id, function(error, data) {
+                expect(error).to.not.be.ok();
+                expect(data.time).to.be.within(TERMINATION_TIME - ACCEPTABLE_TIME_VARIANCE, TERMINATION_TIME + ACCEPTABLE_TIME_VARIANCE);
+                client.getWorker(worker1.id, function(error, worker2) {
+                  expect(error.message).to.equal('no such worker');
+                  expect(worker2).to.not.be.ok();
+                  done();
+                });
+              });
+            }, TERMINATION_TIME + QUEUE_TIME);
+          }
+        });        
+      });
+
+      it('should error if the worker is not running or queued', function(done) {
+        client.terminateWorker('nonsense', function(error, data) {
+          expect(error.message).to.equal('no such worker');
+          expect(data).to.not.be.ok();
+          done();
+        });
+      });
+
+      it('should report 0 active time if stopped while queued', function(done) {
+        client.createWorker({
+          os: 'hello',
+          browser: 'goodbye',
+          version: 'huh'
+        }, function(error, worker1) {
+          if (error) {
+            expect().fail('could not create worker');
+          } else {
+            client.terminateWorker(worker1.id, function(error, data) {
+              expect(error).to.not.be.ok();
+              expect(data.time).to.equal(0);
+              client.getWorker(worker1.id, function(error, worker2) {
+                expect(error.message).to.equal('no such worker');
+                expect(worker2).to.not.be.ok();
+                done();
+              });
+            });
+          }
+        });        
       });
     });
   });
