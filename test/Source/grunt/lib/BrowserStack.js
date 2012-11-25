@@ -39,6 +39,8 @@ var PASSWORD = 'password';
 var BAD_USERNAME = 'badusername';
 var BAD_PASSWORD = 'badpassword';
 var URL = 'url';
+var TIMEOUT = 2000;
+var QUEUE_TIMEOUT = 100;
 
 var MOCK_BROWSERSTACK = new MockBrowserstack({
   browsers: BROWSERS,
@@ -58,6 +60,7 @@ describe('BrowserStack', function() {
   var authorizedBrowserStack;
   var unauthorizedBrowserStack;
   var invalidBrowserStack;
+  var timeoutBrowserStack;
 
   beforeEach(function() {
     MOCK_BROWSERSTACK.reset();
@@ -70,19 +73,30 @@ describe('BrowserStack', function() {
       username: USERNAME,
       password: PASSWORD,
       browsers: WORKERS,
-      url: URL
+      url: URL,
+      timeout: TIMEOUT
     });
     unauthorizedBrowserStack = new BrowserStack({
       username: BAD_USERNAME,
       password: BAD_PASSWORD,
       browsers: WORKERS,
-      url: URL
+      url: URL,
+      timeout: TIMEOUT
     });
     invalidBrowserStack = new BrowserStack({
       username: USERNAME,
       password: PASSWORD,
       browsers: WORKERS.concat([INVALID_BROWSER]),
-      url: URL
+      url: URL,
+      timeout: TIMEOUT
+    });
+    timeoutBrowserStack = new BrowserStack({
+      username: USERNAME,
+      password: PASSWORD,
+      browsers: WORKERS,
+      url: URL,
+      timeout: TIMEOUT,
+      queueTimeout: QUEUE_TIMEOUT
     });
   });
 
@@ -113,7 +127,7 @@ describe('BrowserStack', function() {
       });
     });
 
-    it('should return a list of started workers pointing at the correct URL', function(done) {
+    it('should return a list of running workers pointing at the correct URL', function(done) {
       authorizedBrowserStack.start(function(errors, workers) {
         expect(errors).to.not.be.ok();
         expect(workers.length).to.equal(2);
@@ -125,22 +139,57 @@ describe('BrowserStack', function() {
                 (browser.device && browser.device === worker.device) || 
                 (browser.browser && browser.browser === worker.browser)
               ) &&
-              browser.version === worker.version &&
-              (browser.url || URL) === worker.url
+              browser.version === worker.version
             ) {
-              checklist.check(browser);
+              if (
+                (browser.url || URL) === worker.url &&
+                'running' === worker.status &&
+                TIMEOUT === worker.timeout
+              ) {
+                checklist.check(browser);
+              } else {
+                checklist.check(browser, new Error('worker not correct'));
+              }
             }
           });
         });
       });
-      
-      it('should fail if already started', function(done) {
-        authorizedBrowserStack.start(function(errors, workers) {
-          expect(errors).to.not.be.ok();
-          authorizedBrowserStack.start(function(errors, workers) {
-            expect(errors.length).to.equal(1);
-            expect(errors[0].message).to.equal('already started');
+    });
+
+    it('should fail if an error is encountered while waiting for workers to start', function(done) {
+      timeoutBrowserStack.start(function(errors, workers) {
+        expect(workers).to.not.be.ok();
+        expect(errors.length).to.equal(3);
+        expect(errors[0].message).to.equal('no such worker');
+        expect(errors[1].message).to.equal('no such worker');
+        expect(errors[2].message).to.equal('no such worker');
+        done();
+      });
+      client.getWorkers(function(error, workers) {
+        workers.forEach(function(worker) {
+          client.terminateWorker(worker.id, function() {
+            // do nothing
           });
+        });
+      });
+    });
+
+    it('should fail if workers are not running within specified timeout value', function(done) {
+      timeoutBrowserStack.start(function(errors, workers) {
+        expect(workers).to.not.be.ok();
+        expect(errors.length).to.equal(1);
+        expect(errors[0].message).to.equal('timed out');
+        done();
+      });
+    });
+         
+    it('should fail if already started', function(done) {
+      authorizedBrowserStack.start(function(errors, workers) {
+        expect(errors).to.not.be.ok();
+        authorizedBrowserStack.start(function(errors, workers) {
+          expect(errors.length).to.equal(1);
+          expect(errors[0].message).to.equal('already started');
+          done();
         });
       });
     });

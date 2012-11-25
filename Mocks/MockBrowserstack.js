@@ -10,6 +10,7 @@ function MockBrowserstackWorker(settings) {
   self.browser = settings.browser;
   self.device = settings.device;
   self.url = settings.url;
+  self.timeout = settings.timeout;
   self.version = settings.version;
   self.id = settings.id || uuid.v1();
   self.status = settings.status || 'queue';

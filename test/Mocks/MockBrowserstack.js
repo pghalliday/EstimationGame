@@ -275,6 +275,8 @@ describe('MockBrowserstack', function() {
           if (error) {
             expect().fail('could not create worker');
           } else {
+            // timeout should have been added to worker as a property
+            expect(worker1.timeout).to.equal(TERMINATION_TIME);
             setTimeout(function() {
               authorizedClient.getWorker(worker1.id, function(error, worker2) {
                 expect(error.message).to.equal('no such worker');
