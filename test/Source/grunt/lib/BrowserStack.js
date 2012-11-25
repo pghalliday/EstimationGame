@@ -11,7 +11,8 @@ var VALID_BROWSER_1 = {
 var VALID_BROWSER_2 = {
   os: 'hello',
   browser: 'goodbye',
-  version: 'huh'
+  version: 'huh',
+  url: 'another url'
 };
 var VALID_BROWSER_3 = {
   os: 'foo',
@@ -37,6 +38,7 @@ var USERNAME = 'username';
 var PASSWORD = 'password';
 var BAD_USERNAME = 'badusername';
 var BAD_PASSWORD = 'badpassword';
+var URL = 'url';
 
 var MOCK_BROWSERSTACK = new MockBrowserstack({
   browsers: BROWSERS,
@@ -67,17 +69,20 @@ describe('BrowserStack', function() {
     authorizedBrowserStack = new BrowserStack({
       username: USERNAME,
       password: PASSWORD,
-      browsers: WORKERS
+      browsers: WORKERS,
+      url: URL
     });
     unauthorizedBrowserStack = new BrowserStack({
       username: BAD_USERNAME,
       password: BAD_PASSWORD,
-      browsers: WORKERS
+      browsers: WORKERS,
+      url: URL
     });
     invalidBrowserStack = new BrowserStack({
       username: USERNAME,
       password: PASSWORD,
-      browsers: WORKERS.concat([INVALID_BROWSER])
+      browsers: WORKERS.concat([INVALID_BROWSER]),
+      url: URL
     });
   });
 
@@ -108,7 +113,7 @@ describe('BrowserStack', function() {
       });
     });
 
-    it('should return a list of started workers', function(done) {
+    it('should return a list of started workers pointing at the correct URL', function(done) {
       authorizedBrowserStack.start(function(errors, workers) {
         expect(errors).to.not.be.ok();
         expect(workers.length).to.equal(2);
@@ -120,10 +125,21 @@ describe('BrowserStack', function() {
                 (browser.device && browser.device === worker.device) || 
                 (browser.browser && browser.browser === worker.browser)
               ) &&
-              browser.version === worker.version
+              browser.version === worker.version &&
+              (browser.url || URL) === worker.url
             ) {
               checklist.check(browser);
             }
+          });
+        });
+      });
+      
+      it('should fail if already started', function(done) {
+        authorizedBrowserStack.start(function(errors, workers) {
+          expect(errors).to.not.be.ok();
+          authorizedBrowserStack.start(function(errors, workers) {
+            expect(errors.length).to.equal(1);
+            expect(errors[0].message).to.equal('already started');
           });
         });
       });
@@ -131,17 +147,90 @@ describe('BrowserStack', function() {
   });
 
   describe('#stop', function() {
-    var testWorkers;
-
-    beforeEach(function(done) {
-      authorizedBrowserStack.start(function(errors, workers) {
-        testWorkers = workers;
+    it('should fail if not started', function(done) {
+      authorizedBrowserStack.stop(function(errors) {
+        expect(errors.length).to.equal(1);
+        expect(errors[0].message).to.equal('not started');
         done();
+      });
+    });
+    
+    describe('when started', function() {
+      var testWorkers;
+      
+      beforeEach(function(done) {
+        authorizedBrowserStack.start(function(errors, workers) {
+          testWorkers = workers;
+          done();
+        });
+      });
+
+      it('should fail if a worker cannot be terminated', function(done) {
+        client.terminateWorker(testWorkers[1].id, function(error) {
+          authorizedBrowserStack.stop(function(errors) {
+            expect(errors.length).to.equal(1);
+            expect(errors[0].message).to.equal('no such worker');
+            done();
+          });
+        });
+      });
+
+      it('should terminate all (and only) the workers previously started by this instance', function(done) {
+        client.createWorker(VALID_BROWSER_1, function(error, extraWorker) {
+          authorizedBrowserStack.stop(function(errors) {
+            expect(errors).to.not.be.ok();
+            var checklist = new Checklist(testWorkers.concat(extraWorker), done);
+            testWorkers.forEach(function(testWorker) {
+              client.getWorker(testWorker.id, function(error, worker) {
+                if (worker) {
+                  checklist.check(testWorker, new Error('worker was not stopped'));
+                } else {
+                  checklist.check(testWorker);
+                }
+              });
+            });
+            client.getWorker(extraWorker.id, function(error, worker) {
+              if (worker) {
+                checklist.check(extraWorker);
+              } else {
+                checklist.check(extraWorker, new Error('extra worker was stopped'));
+              }
+            });
+          });
+        });
+      });
+    });
+  });
+  
+  describe('#stopThese', function() {
+    var startedWorkers;
+    
+    beforeEach(function(done) {
+      startedWorkers = [];
+      client.createWorker(VALID_BROWSER_1, function(error, worker) {
+        startedWorkers.push(worker);
+        client.createWorker(VALID_BROWSER_2, function(error, worker) {
+          startedWorkers.push(worker);
+          client.createWorker(VALID_BROWSER_3, function(error, worker) {
+            startedWorkers.push(worker);
+            done();
+          });
+        });
+      });
+    });
+    
+    it('should fail if started', function(done) {
+      authorizedBrowserStack.start(function(errors, workers) {
+        authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
+          expect(errors.length).to.equal(1);
+          expect(errors[0].message).to.equal('has been started use stop() instead');
+          done();
+        });
       });
     });
 
     it('should fail if not authorized', function(done) {
-      unauthorizedBrowserStack.stop(testWorkers, function(errors) {
+      unauthorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
         expect(errors.length).to.equal(2);
         expect(errors[0].message).to.equal('not authorized');
         expect(errors[1].message).to.equal('not authorized');
@@ -149,67 +238,60 @@ describe('BrowserStack', function() {
       });
     });
 
-    it('should fail if not authorized and no workers specified', function(done) {
-      unauthorizedBrowserStack.stop(function(errors) {
+    it('should report errors for workers that could not be terminated', function(done) {
+      client.terminateWorker(startedWorkers[0].id, function(error) {
+        authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
+          expect(errors.length).to.equal(1);
+          expect(errors[0].message).to.equal('no such worker');
+          done();
+        });
+      });
+    });
+    
+    it('should terminate only the workers specified', function(done) {
+      authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
+        expect(errors).to.not.be.ok();
+        client.getWorkers(function(error, workers) {
+          expect(error).to.not.be.ok();
+          expect(workers.length).to.equal(1);
+          expect(workers[0].id).to.equal(startedWorkers[1].id);
+          done();
+        });
+      });
+    });
+  });
+
+  describe('#stopAll', function() {
+    it('should fail if started', function(done) {
+      authorizedBrowserStack.start(function(errors, workers) {
+        authorizedBrowserStack.stopAll(function(errors) {
+          expect(errors.length).to.equal(1);
+          expect(errors[0].message).to.equal('has been started use stop() instead');
+          done();
+        });
+      });
+    });
+
+    it('should fail if not authorized', function(done) {
+      unauthorizedBrowserStack.stopAll(function(errors) {
         expect(errors.length).to.equal(1);
         expect(errors[0].message).to.equal('not authorized');
         done();
       });
     });
 
-    it('should fail if a worker cannot be terminated', function(done) {
-      authorizedBrowserStack.stop(testWorkers.concat([{id: 'invalid'}]), function(errors) {
-        expect(errors.length).to.equal(1);
-        expect(errors[0].message).to.equal('no such worker');
-        done();
-      });
-    });
-
-    it('should terminate only the workers specified', function(done) {
+    it('should terminate all the workers', function(done) {
       client.createWorker(VALID_BROWSER_1, function(error, extraWorker) {
-        authorizedBrowserStack.stop(testWorkers, function(errors) {
-          expect(errors).to.not.be.ok();
-          var checklist = new Checklist(testWorkers.concat(extraWorker), done);
-          testWorkers.forEach(function(testWorker) {
-            client.getWorker(testWorker.id, function(error, worker) {
-              if (worker) {
-                checklist.check(testWorker, new Error('worker was not stopped'));
-              } else {
-                checklist.check(testWorker);
-              }
+        client.createWorker(VALID_BROWSER_2, function(error, extraWorker) {
+          client.createWorker(VALID_BROWSER_3, function(error, extraWorker) {
+            authorizedBrowserStack.stopAll(function(errors) {
+              expect(errors).to.not.be.ok();
+              client.getWorkers(function(error, workers) {
+                expect(error).to.not.be.ok();
+                expect(workers.length).to.equal(0);
+                done();
+              });
             });
-          });
-          client.getWorker(extraWorker.id, function(error, worker) {
-            if (worker) {
-              checklist.check(extraWorker);
-            } else {
-              checklist.check(extraWorker, new Error('extra worker was stopped'));
-            }
-          });
-        });
-      });
-    });
-
-    it('should terminate all the workers if none specified', function(done) {
-      client.createWorker(VALID_BROWSER_1, function(error, extraWorker) {
-        authorizedBrowserStack.stop(function(errors) {
-          expect(errors).to.not.be.ok();
-          var checklist = new Checklist(testWorkers.concat(extraWorker), done);
-          testWorkers.forEach(function(testWorker) {
-            client.getWorker(testWorker.id, function(error, worker) {
-              if (worker) {
-                checklist.check(testWorker, new Error('worker was not stopped'));
-              } else {
-                checklist.check(testWorker);
-              }
-            });
-          });
-          client.getWorker(extraWorker.id, function(error, worker) {
-            if (worker) {
-              checklist.check(extraWorker, new Error('extra worker was not stopped'));
-            } else {
-              checklist.check(extraWorker);
-            }
           });
         });
       });
