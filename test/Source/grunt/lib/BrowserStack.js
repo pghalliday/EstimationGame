@@ -107,7 +107,11 @@ describe('BrowserStack', function() {
         expect(errors[0].message).to.equal('not authorized');
         expect(errors[1].message).to.equal('not authorized');
         expect(workers).to.not.be.ok();
-        done();
+        client.getWorkers(function(error, workers) {
+          expect(error).to.not.be.ok();
+          expect(workers.length).to.equal(0);
+          done();
+        });
       });
     });
 
@@ -117,12 +121,9 @@ describe('BrowserStack', function() {
         expect(errors[0].message).to.equal('invalid browser settings');
         expect(workers).to.not.be.ok();
         client.getWorkers(function(error, workers) {
-          if (error) {
-            expect().fail('error encountered querying workers: ' + error);
-          } else {
-            expect(workers.length).to.equal(0);
-            done();
-          }
+          expect(error).to.not.be.ok();
+          expect(workers.length).to.equal(0);
+          done();
         });
       });
     });
@@ -163,7 +164,11 @@ describe('BrowserStack', function() {
         expect(errors[0].message).to.equal('no such worker');
         expect(errors[1].message).to.equal('no such worker');
         expect(errors[2].message).to.equal('no such worker');
-        done();
+        client.getWorkers(function(error, workers) {
+          expect(error).to.not.be.ok();
+          expect(workers.length).to.equal(0);
+          done();
+        });
       });
       client.getWorkers(function(error, workers) {
         workers.forEach(function(worker) {
@@ -179,7 +184,11 @@ describe('BrowserStack', function() {
         expect(workers).to.not.be.ok();
         expect(errors.length).to.equal(1);
         expect(errors[0].message).to.equal('timed out');
-        done();
+        client.getWorkers(function(error, workers) {
+          expect(error).to.not.be.ok();
+          expect(workers.length).to.equal(0);
+          done();
+        });
       });
     });
          
