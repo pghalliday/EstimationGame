@@ -74,19 +74,46 @@ module.exports = function(grunt) {
       tasks: ['default']
     },
     testacularServer: {
-      allowExit: {
+      dev: {
         configFile: 'testacular.conf.js'
       }
     },
-    browserStackTunnel: {
-      keepAlive: {
-        keepAlive: true,
-        key: browserStackConfig.key,
-        hosts: [{
-          name: 'localhost',
-          port: 8001,
-          sslFlag: 0
-        }]
+    browserStack: {
+      dev: {
+        credentials: {
+          username: browserStackConfig.username,
+          password: browserStackConfig.password
+        },
+        tunnel: {
+          key: browserStackConfig.key,
+          hosts: [{
+            name: 'localhost',
+            port: 8001,
+            sslFlag: 0
+          }]
+        },
+        start: {
+          url: 'http://localhost:8001',
+          timeout: 30,
+          queueTimeout: 30000,
+          browsers: [{
+            version: '24.0',
+            browser: 'chrome',
+            os: 'win'
+          }]
+        }
+      }
+    }, 
+    browserStackClean: {
+      dev: {
+        username: browserStackConfig.username,
+        password: browserStackConfig.password
+      }
+    }, 
+    browserStackList: {
+      dev: {
+        username: browserStackConfig.username,
+        password: browserStackConfig.password
       }
     } 
   });
@@ -95,5 +122,11 @@ module.exports = function(grunt) {
   grunt.registerTask('default', 'lint mochaTest:test');
 
   // Start services used for development
-  grunt.registerTask('devstart', 'testacularServer browserStackTunnel');
+  grunt.registerTask('devstart', 'testacularServer browserStack');
+
+  // Clean any orphaned browsers used for development
+  grunt.registerTask('devclean', 'browserStackClean');
+
+  // List available browsers for development
+  grunt.registerTask('devlist', 'browserStackList');
 };

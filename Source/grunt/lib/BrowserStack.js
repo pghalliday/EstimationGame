@@ -7,7 +7,8 @@ function BrowserStack(options) {
   var self = this,
       workers = null,
       startCallback,
-      queueStartTime;
+      queueStartTime,
+      queueTimeout;
   
   function cleanUp(client, errors, callback) {
     async.forEach(workers, function(worker, callback) {
@@ -32,7 +33,7 @@ function BrowserStack(options) {
       version: 2
     });
     var now = new Date().getTime();
-    if ((now - queueStartTime) > (options.queueTimeout || DEFAULT_QUEUE_TIME)) {
+    if ((now - queueStartTime) > (queueTimeout || DEFAULT_QUEUE_TIME)) {
       // there was an error getting the worker and there shouldn't be, cleanup and callback
       cleanUp(client, [new Error('timed out')], startCallback);
     } else {
@@ -69,7 +70,7 @@ function BrowserStack(options) {
     }
   }
   
-  self.start = function(callback) {
+  self.start = function(startOptions, callback) {
     if (workers) {
       callback([new Error('already started')]);
     } else {
@@ -81,9 +82,9 @@ function BrowserStack(options) {
       });
       var errors = [];
       workers = [];
-      async.forEach(options.browsers, function(browser, callback) {
-        browser.url = browser.url || options.url;
-        browser.timeout = browser.timeout || options.timeout;
+      async.forEach(startOptions.browsers, function(browser, callback) {
+        browser.url = browser.url || startOptions.url;
+        browser.timeout = browser.timeout || startOptions.timeout;
         client.createWorker(browser, function(error, worker) {
           if (error) {
             errors.push(error);
@@ -99,6 +100,7 @@ function BrowserStack(options) {
         } else {
           // lets wait for all workers to start running
           startCallback = callback;
+          queueTimeout = startOptions.queueTimeout;
           process.nextTick(checkRunning);
         }
       });
@@ -153,7 +155,7 @@ function BrowserStack(options) {
     }
   };
 
-  self.stopAll = function(callback) {
+  self.clean = function(callback) {
     if (workers) {
       callback([new Error('has been started use stop() instead')]);
     } else {
@@ -170,6 +172,15 @@ function BrowserStack(options) {
         }
       });
     }
+  };
+
+  self.list = function(callback) {
+    var client = browserstack.createClient({
+      username: options.username,
+      password: options.password,
+      version: 2
+    });
+    client.getBrowsers(callback);
   };
 }
 

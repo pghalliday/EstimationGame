@@ -24,15 +24,18 @@ var INVALID_BROWSER = {
   browser: 'invalid',
   version: 'invalid'
 };
+
 var BROWSERS = [
   VALID_BROWSER_1,
   VALID_BROWSER_2,
   VALID_BROWSER_3
 ];
+
 var WORKERS = [
   VALID_BROWSER_2,
   VALID_BROWSER_3
 ];
+
 var QUEUE_TIME = 200;
 var USERNAME = 'username';
 var PASSWORD = 'password';
@@ -41,6 +44,23 @@ var BAD_PASSWORD = 'badpassword';
 var URL = 'url';
 var TIMEOUT = 2000;
 var QUEUE_TIMEOUT = 100;
+
+var START_PARAMS = {
+  browsers: WORKERS,
+  url: URL,
+  timeout: TIMEOUT
+};
+var INVALID_START_PARAMS = {
+  browsers: WORKERS.concat([INVALID_BROWSER]),
+  url: URL,
+  timeout: TIMEOUT
+};
+var QUEUE_TIMEOUT_START_PARAMS = {
+  browsers: WORKERS,
+  url: URL,
+  timeout: TIMEOUT,
+  queueTimeout: QUEUE_TIMEOUT
+};
 
 var MOCK_BROWSERSTACK = new MockBrowserstack({
   browsers: BROWSERS,
@@ -71,38 +91,17 @@ describe('BrowserStack', function() {
     });
     authorizedBrowserStack = new BrowserStack({
       username: USERNAME,
-      password: PASSWORD,
-      browsers: WORKERS,
-      url: URL,
-      timeout: TIMEOUT
+      password: PASSWORD
     });
     unauthorizedBrowserStack = new BrowserStack({
       username: BAD_USERNAME,
-      password: BAD_PASSWORD,
-      browsers: WORKERS,
-      url: URL,
-      timeout: TIMEOUT
-    });
-    invalidBrowserStack = new BrowserStack({
-      username: USERNAME,
-      password: PASSWORD,
-      browsers: WORKERS.concat([INVALID_BROWSER]),
-      url: URL,
-      timeout: TIMEOUT
-    });
-    timeoutBrowserStack = new BrowserStack({
-      username: USERNAME,
-      password: PASSWORD,
-      browsers: WORKERS,
-      url: URL,
-      timeout: TIMEOUT,
-      queueTimeout: QUEUE_TIMEOUT
+      password: BAD_PASSWORD
     });
   });
 
   describe('#start', function() {
     it('should fail if not authorized', function(done) {
-      unauthorizedBrowserStack.start(function(errors, workers) {
+      unauthorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
         expect(errors.length).to.equal(2);
         expect(errors[0].message).to.equal('not authorized');
         expect(errors[1].message).to.equal('not authorized');
@@ -116,7 +115,7 @@ describe('BrowserStack', function() {
     });
 
     it('should fail if a worker cannot be started and terminate any workers that were started', function(done) {
-      invalidBrowserStack.start(function(errors, workers) {
+      authorizedBrowserStack.start(INVALID_START_PARAMS, function(errors, workers) {
         expect(errors.length).to.equal(1);
         expect(errors[0].message).to.equal('invalid browser settings');
         expect(workers).to.not.be.ok();
@@ -129,7 +128,7 @@ describe('BrowserStack', function() {
     });
 
     it('should return a list of running workers pointing at the correct URL', function(done) {
-      authorizedBrowserStack.start(function(errors, workers) {
+      authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
         expect(errors).to.not.be.ok();
         expect(workers.length).to.equal(2);
         var checklist = new Checklist(WORKERS, done);
@@ -158,7 +157,7 @@ describe('BrowserStack', function() {
     });
 
     it('should fail if an error is encountered while waiting for workers to start', function(done) {
-      timeoutBrowserStack.start(function(errors, workers) {
+      authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
         expect(workers).to.not.be.ok();
         expect(errors.length).to.equal(3);
         expect(errors[0].message).to.equal('no such worker');
@@ -180,7 +179,7 @@ describe('BrowserStack', function() {
     });
 
     it('should fail if workers are not running within specified timeout value', function(done) {
-      timeoutBrowserStack.start(function(errors, workers) {
+      authorizedBrowserStack.start(QUEUE_TIMEOUT_START_PARAMS, function(errors, workers) {
         expect(workers).to.not.be.ok();
         expect(errors.length).to.equal(1);
         expect(errors[0].message).to.equal('timed out');
@@ -193,9 +192,9 @@ describe('BrowserStack', function() {
     });
          
     it('should fail if already started', function(done) {
-      authorizedBrowserStack.start(function(errors, workers) {
+      authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
         expect(errors).to.not.be.ok();
-        authorizedBrowserStack.start(function(errors, workers) {
+        authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
           expect(errors.length).to.equal(1);
           expect(errors[0].message).to.equal('already started');
           done();
@@ -217,7 +216,7 @@ describe('BrowserStack', function() {
       var testWorkers;
       
       beforeEach(function(done) {
-        authorizedBrowserStack.start(function(errors, workers) {
+        authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
           testWorkers = workers;
           done();
         });
@@ -278,7 +277,7 @@ describe('BrowserStack', function() {
     });
     
     it('should fail if started', function(done) {
-      authorizedBrowserStack.start(function(errors, workers) {
+      authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
         authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
           expect(errors.length).to.equal(1);
           expect(errors[0].message).to.equal('has been started use stop() instead');
@@ -319,10 +318,10 @@ describe('BrowserStack', function() {
     });
   });
 
-  describe('#stopAll', function() {
+  describe('#clean', function() {
     it('should fail if started', function(done) {
-      authorizedBrowserStack.start(function(errors, workers) {
-        authorizedBrowserStack.stopAll(function(errors) {
+      authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
+        authorizedBrowserStack.clean(function(errors) {
           expect(errors.length).to.equal(1);
           expect(errors[0].message).to.equal('has been started use stop() instead');
           done();
@@ -331,7 +330,7 @@ describe('BrowserStack', function() {
     });
 
     it('should fail if not authorized', function(done) {
-      unauthorizedBrowserStack.stopAll(function(errors) {
+      unauthorizedBrowserStack.clean(function(errors) {
         expect(errors.length).to.equal(1);
         expect(errors[0].message).to.equal('not authorized');
         done();
@@ -342,13 +341,38 @@ describe('BrowserStack', function() {
       client.createWorker(VALID_BROWSER_1, function(error, extraWorker) {
         client.createWorker(VALID_BROWSER_2, function(error, extraWorker) {
           client.createWorker(VALID_BROWSER_3, function(error, extraWorker) {
-            authorizedBrowserStack.stopAll(function(errors) {
+            authorizedBrowserStack.clean(function(errors) {
               expect(errors).to.not.be.ok();
               client.getWorkers(function(error, workers) {
                 expect(error).to.not.be.ok();
                 expect(workers.length).to.equal(0);
                 done();
               });
+            });
+          });
+        });
+      });
+    });
+  });
+
+  describe('#list', function() {
+    it('should fail if not authorized', function(done) {
+      unauthorizedBrowserStack.list(function(error, browsers) {
+        expect(error.message).to.equal('not authorized');
+        expect(browsers).to.not.be.ok();
+        done();
+      });
+    });
+
+    it('should list all available browsers', function(done) {
+      client.createWorker(VALID_BROWSER_1, function(error, extraWorker) {
+        client.createWorker(VALID_BROWSER_2, function(error, extraWorker) {
+          client.createWorker(VALID_BROWSER_3, function(error, extraWorker) {
+            authorizedBrowserStack.list(function(error, browsers) {
+              expect(error).to.not.be.ok();
+              expect(browsers.length).to.equal(3);
+              expect(browsers).to.equal(BROWSERS);
+              done();
             });
           });
         });
