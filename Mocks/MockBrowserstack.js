@@ -36,6 +36,10 @@ function MockBrowserstackClient(mockBrowserstack, settings) {
     mockBrowserstack.getWorker(self, id, callback);
   };
 
+  self.getWorkerExtraFields = function(id, callback) {
+    mockBrowserstack.getWorkerExtraFields(self, id, callback);
+  };
+
   self.getWorkers = function(callback) {
     mockBrowserstack.getWorkers(self, callback);
   };
@@ -101,7 +105,9 @@ function MockBrowserstack(options) {
               }, settings.timeout || DEFAULT_TERMINATION_TIME);
             }, options.queueTime || DEFAULT_QUEUE_TIME);
 
-            callback(null, new MockBrowserstackWorker(worker));
+            callback(null, {
+              id: worker.id
+            });
           } else {
             callback(new Error('invalid browser settings'));
           }
@@ -117,7 +123,31 @@ function MockBrowserstack(options) {
       } else {
         var worker = workers[id];
         if (worker) {
-          callback(null, new MockBrowserstackWorker(worker));
+          callback(null, {
+            status: worker.status,
+            os: worker.os,
+            device: worker.device,
+            browser: worker.browser,
+            version: worker.version
+          });
+        } else {
+          callback(new Error('no such worker'));
+        }
+      }
+    });
+  };
+
+  self.getWorkerExtraFields = function(client, id, callback) {
+    isAuthorized(client, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        var worker = workers[id];
+        if (worker) {
+          callback(null, {
+            url: worker.url,
+            timeout: worker.timeout
+          });
         } else {
           callback(new Error('no such worker'));
         }
@@ -132,7 +162,14 @@ function MockBrowserstack(options) {
       } else {
         var workersSnapshot = [];
         Object.keys(workers).forEach(function(key) {
-          workersSnapshot.push(new MockBrowserstackWorker(workers[key]));
+          workersSnapshot.push({
+            id: workers[key].id,
+            status: workers[key].status,
+            os: workers[key].os,
+            device: workers[key].device,
+            browser: workers[key].browser,
+            version: workers[key].version
+          });
         });
         callback(null, workersSnapshot);
       }

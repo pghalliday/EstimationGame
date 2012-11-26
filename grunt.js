@@ -94,7 +94,7 @@ module.exports = function(grunt) {
         },
         start: {
           url: 'http://localhost:8001',
-          timeout: 30,
+          timeout: 60,
           queueTimeout: 30000,
           browsers: [{
             version: '24.0',

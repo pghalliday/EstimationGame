@@ -133,24 +133,34 @@ describe('BrowserStack', function() {
         expect(workers.length).to.equal(2);
         var checklist = new Checklist(WORKERS, done);
         workers.forEach(function(worker) {
-          WORKERS.forEach(function(browser) {
-            if (
-              browser.os === worker.os && (
-                (browser.device && browser.device === worker.device) || 
-                (browser.browser && browser.browser === worker.browser)
-              ) &&
-              browser.version === worker.version
-            ) {
+          var url;
+          var timeout;
+          client.getWorkerExtraFields(worker.id, function(error, worker) {
+            expect(error).to.not.be.ok();
+            url = worker.url;
+            timeout = worker.timeout;
+          });
+          client.getWorker(worker.id, function(error, worker) {
+            expect(error).to.not.be.ok();
+            WORKERS.forEach(function(browser) {
               if (
-                (browser.url || URL) === worker.url &&
-                'running' === worker.status &&
-                TIMEOUT === worker.timeout
+                browser.os === worker.os && (
+                  (browser.device && browser.device === worker.device) || 
+                  (browser.browser && browser.browser === worker.browser)
+                ) &&
+                browser.version === worker.version
               ) {
-                checklist.check(browser);
-              } else {
-                checklist.check(browser, new Error('worker not correct'));
+                if (
+                 (browser.url || URL) === url &&
+                  'running' === worker.status &&
+                  TIMEOUT === timeout
+                ) {
+                  checklist.check(browser);
+                } else {
+                  checklist.check(browser, new Error('worker not correct'));
+                }
               }
-            }
+            });
           });
         });
       });
@@ -254,65 +264,6 @@ describe('BrowserStack', function() {
               }
             });
           });
-        });
-      });
-    });
-  });
-  
-  describe('#stopThese', function() {
-    var startedWorkers;
-    
-    beforeEach(function(done) {
-      startedWorkers = [];
-      client.createWorker(VALID_BROWSER_1, function(error, worker) {
-        startedWorkers.push(worker);
-        client.createWorker(VALID_BROWSER_2, function(error, worker) {
-          startedWorkers.push(worker);
-          client.createWorker(VALID_BROWSER_3, function(error, worker) {
-            startedWorkers.push(worker);
-            done();
-          });
-        });
-      });
-    });
-    
-    it('should fail if started', function(done) {
-      authorizedBrowserStack.start(START_PARAMS, function(errors, workers) {
-        authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
-          expect(errors.length).to.equal(1);
-          expect(errors[0].message).to.equal('has been started use stop() instead');
-          done();
-        });
-      });
-    });
-
-    it('should fail if not authorized', function(done) {
-      unauthorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
-        expect(errors.length).to.equal(2);
-        expect(errors[0].message).to.equal('not authorized');
-        expect(errors[1].message).to.equal('not authorized');
-        done();
-      });
-    });
-
-    it('should report errors for workers that could not be terminated', function(done) {
-      client.terminateWorker(startedWorkers[0].id, function(error) {
-        authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
-          expect(errors.length).to.equal(1);
-          expect(errors[0].message).to.equal('no such worker');
-          done();
-        });
-      });
-    });
-    
-    it('should terminate only the workers specified', function(done) {
-      authorizedBrowserStack.stopThese([startedWorkers[0], startedWorkers[2]], function(errors) {
-        expect(errors).to.not.be.ok();
-        client.getWorkers(function(error, workers) {
-          expect(error).to.not.be.ok();
-          expect(workers.length).to.equal(1);
-          expect(workers[0].id).to.equal(startedWorkers[1].id);
-          done();
         });
       });
     });

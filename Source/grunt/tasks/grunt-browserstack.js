@@ -21,6 +21,7 @@ module.exports = function(grunt) {
         console.log(workers);
         console.log('');
         grunt.log.ok('press any key to end them');
+        console.log('');
 
         process.stdin.setRawMode(true);    
         process.stdin.resume();
@@ -55,7 +56,7 @@ module.exports = function(grunt) {
               } 
               if (error) {
                 grunt.log.error(error.message);
-                success = false
+                success = false;
               }
               done(success);
             });

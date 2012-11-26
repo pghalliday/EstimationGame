@@ -174,12 +174,22 @@ describe('MockBrowserstack', function() {
           url: 'my url'
         }, function(error, worker1) {
           expect(error).to.not.be.ok();
-          expect(worker1.os).to.equal(VALID_BROWSER_1.os);
-          expect(worker1.browser).to.equal(VALID_BROWSER_1.browser);
-          expect(worker1.version).to.equal(VALID_BROWSER_1.version);
           expect(worker1.id).to.be.ok();
-          expect(worker1.status).to.equal('queue');
-          expect(worker1.url).to.equal('my url');
+          expect(worker1.status).to.not.be.ok();
+          expect(worker1.os).to.not.be.ok();
+          expect(worker1.browser).to.not.be.ok();
+          expect(worker1.version).to.not.be.ok();
+          authorizedClient.getWorker(worker1.id, function(error, worker) {
+            expect(error).to.not.be.ok();
+            expect(worker.status).to.equal('queue');
+            expect(worker.os).to.equal(VALID_BROWSER_1.os);
+            expect(worker.browser).to.equal(VALID_BROWSER_1.browser);
+            expect(worker.version).to.equal(VALID_BROWSER_1.version);
+          });
+          authorizedClient.getWorkerExtraFields(worker1.id, function(error, worker) {
+            expect(error).to.not.be.ok();
+            expect(worker.url).to.equal('my url');
+          });
           authorizedClient.createWorker({
             os: VALID_BROWSER_2.os,
             browser: VALID_BROWSER_2.browser,
@@ -187,13 +197,23 @@ describe('MockBrowserstack', function() {
             url: 'another url'
           }, function(error, worker2) {
             expect(error).to.not.be.ok();
-            expect(worker2.os).to.equal(VALID_BROWSER_2.os);
-            expect(worker2.browser).to.equal(VALID_BROWSER_2.browser);
-            expect(worker2.version).to.equal(VALID_BROWSER_2.version);
             expect(worker2.id).to.be.ok();
             expect(worker2.id).to.not.eql(worker1.id);
-            expect(worker2.status).to.equal('queue');
-            expect(worker2.url).to.equal('another url');
+            expect(worker2.status).to.not.be.ok();
+            expect(worker2.os).to.not.be.ok();
+            expect(worker2.browser).to.not.be.ok();
+            expect(worker2.version).to.not.be.ok();
+            authorizedClient.getWorker(worker2.id, function(error, worker) {
+              expect(error).to.not.be.ok();
+              expect(worker.status).to.equal('queue');
+              expect(worker.os).to.equal(VALID_BROWSER_2.os);
+              expect(worker.browser).to.equal(VALID_BROWSER_2.browser);
+              expect(worker.version).to.equal(VALID_BROWSER_2.version);
+            });
+            authorizedClient.getWorkerExtraFields(worker2.id, function(error, worker) {
+              expect(error).to.not.be.ok();
+              expect(worker.url).to.equal('another url');
+            });
             done();
           });
         });
@@ -221,28 +241,6 @@ describe('MockBrowserstack', function() {
         });
       });
 
-      it('should initially return a copy of the worker returned by create worker', function(done) {
-        authorizedClient.createWorker(VALID_BROWSER_1, function(error, worker1) {
-          if (error) {
-            expect().fail('could not create worker');
-          } else {
-            authorizedClient.getWorker(worker1.id, function(error, worker2) {
-              if (error) {
-                expect().fail('could not get worker');
-              } else {
-                expect(worker2).to.not.equal(worker1);
-                expect(worker2.os).to.equal(worker1.os);
-                expect(worker2.browser).to.equal(worker1.browser);
-                expect(worker2.version).to.equal(worker1.version);
-                expect(worker2.id).to.equal(worker1.id);
-                expect(worker2.status).to.equal(worker1.status);
-                done();
-              }
-            });
-          }
-        });
-      });
-
       it('should return a running worker after the queue time set in the MockBrowserstack instance', function(done) {
         this.timeout(3000);
         authorizedClient.createWorker(VALID_BROWSER_1, function(error, worker1) {
@@ -254,7 +252,6 @@ describe('MockBrowserstack', function() {
                 if (error) {
                   expect().fail('could not get worker');
                 } else {
-                  expect(worker1.status).to.equal('queue');
                   expect(worker2.status).to.equal('running');
                   done();
                 }
@@ -276,7 +273,10 @@ describe('MockBrowserstack', function() {
             expect().fail('could not create worker');
           } else {
             // timeout should have been added to worker as a property
-            expect(worker1.timeout).to.equal(TERMINATION_TIME);
+            authorizedClient.getWorkerExtraFields(worker1.id, function(error, worker) {
+              expect(error).to.not.be.ok();
+              expect(worker.timeout).to.equal(TERMINATION_TIME);
+            });
             setTimeout(function() {
               authorizedClient.getWorker(worker1.id, function(error, worker2) {
                 expect(error.message).to.equal('no such worker');
@@ -285,6 +285,28 @@ describe('MockBrowserstack', function() {
               });
             }, TERMINATION_TIME + QUEUE_TIME + SAFETY_TIME);
           }
+        });
+      });
+    });
+
+    describe('#getWorkerExtraFields', function() {
+      it('should error if client is unauthorized', function(done) {
+        badPasswordClient.getWorkerExtraFields(BAD_WORKER_ID, function(error, worker) {
+          expect(error.message).to.equal('not authorized');
+          expect(worker).to.not.be.ok();
+          badUsernameClient.getWorkerExtraFields(BAD_WORKER_ID, function(error, worker) {
+            expect(error.message).to.equal('not authorized');
+            expect(worker).to.not.be.ok();
+            done();
+          });
+        });
+      });
+
+      it('should error if there is no matching worker', function(done) {
+        authorizedClient.getWorkerExtraFields(BAD_WORKER_ID, function(error, worker) {
+          expect(error.message).to.equal('no such worker');
+          expect(worker).to.not.be.ok();
+          done();
         });
       });
     });
@@ -306,20 +328,18 @@ describe('MockBrowserstack', function() {
         var testWorkers = [];
         var browserChecklist = new Checklist(BROWSERS, function(error) {
           authorizedClient.getWorkers(function(error, workers) {
-            // workers and testWorkers should be the same except the worker instances should be different
             for (var index = 0; index < testWorkers.length; index++) {
-              var worker1 = testWorkers[index];
-              var worker2 = workers[index];
-              expect(worker2).to.not.equal(worker1);
-              expect(worker2.os).to.equal(worker1.os);
-              if (worker2.browser) {
-                expect(worker2.browser).to.equal(worker1.browser);
+              var browser = BROWSERS[index];
+              var worker = workers[index];
+              expect(worker.os).to.equal(browser.os);
+              if (worker.browser) {
+                expect(worker.browser).to.equal(browser.browser);
               } else {
-                expect(worker2.device).to.equal(worker1.device);
+                expect(worker.device).to.equal(browser.device);
               }
-              expect(worker2.version).to.equal(worker1.version);
-              expect(worker2.id).to.equal(worker1.id);
-              expect(worker2.status).to.equal(worker1.status);
+              expect(worker.version).to.equal(browser.version);
+              expect(worker.id).to.equal(testWorkers[index].id);
+              expect(worker.status).to.equal('queue');
             }
             done();
           });

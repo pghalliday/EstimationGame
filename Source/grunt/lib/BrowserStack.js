@@ -38,7 +38,6 @@ function BrowserStack(options) {
       cleanUp(client, [new Error('timed out')], startCallback);
     } else {
       var notRunningCount = 0;
-      var runningWorkers = [];
       async.forEach(workers, function(worker, callback) {
         client.getWorker(worker.id, function(error, worker) {
           if (error) {
@@ -46,8 +45,6 @@ function BrowserStack(options) {
           } else {
             if (worker.status !== 'running') {
               notRunningCount++;
-            } else {
-              runningWorkers.push(worker);
             }
             callback();
           }
@@ -59,7 +56,6 @@ function BrowserStack(options) {
         } else {
           if (notRunningCount === 0) {
             // all workers are running, callback
-            workers = runningWorkers;
             startCallback(null, workers);
           } else {
             // let's check again as soon as we can
@@ -139,19 +135,6 @@ function BrowserStack(options) {
       });
     } else {
       callback([new Error('not started')]);
-    }
-  };
-
-  self.stopThese = function(workersToStop, callback) {
-    if (workers) {
-      callback([new Error('has been started use stop() instead')]);
-    } else {
-      var client = browserstack.createClient({
-        username: options.username,
-        password: options.password,
-        version: 2
-      });
-      stopWorkers(client, workersToStop, callback);
     }
   };
 
