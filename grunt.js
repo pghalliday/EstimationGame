@@ -95,11 +95,19 @@ module.exports = function(grunt) {
         start: {
           url: 'http://localhost:8001',
           timeout: 60,
-          queueTimeout: 30000,
+          queueTimeout: 60000,
           browsers: [{
-            version: '24.0',
+            version: 'latest',
             browser: 'chrome',
             os: 'win'
+          }, {
+            version: 'latest',
+            browser: 'chrome',
+            os: 'mac'
+          }, {
+            version: 'latest',
+            browser: 'firefox',
+            os: 'mac'
           }]
         }
       }
