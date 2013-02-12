@@ -21,6 +21,8 @@ To a contributor the simplest question is, given 2 roadmap items, which is bigge
 
 ## Contributing
 
+I don't like to install node modules globally so instead use the `setpath.bat` script to add the `node_modules/.bin` directory to the path whenever I start a new terminal session.
+
 In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code using ``./grunt.sh`` or ``.\grunt.bat``.
 
 ## License
