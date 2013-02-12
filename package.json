@@ -1,0 +1,12 @@
+{
+  "author": "",
+  "name": "",
+  "version": "0.0.0",
+  "dependencies": {},
+  "devDependencies": {
+    "grunt": "~0.4.0rc7",
+    "testacular": "~0.4.0",
+    "yeoman": "~0.9.6",
+    "grunt-cli": "~0.1.6"
+  }
+}

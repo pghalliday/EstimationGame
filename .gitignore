@@ -1,3 +1,11 @@
+# build stuff
+dist
+temp
+
+# Compass stuff
+.sass-cache
+
+# OSX stuff
 .DS_Store
 
 # Webstorm stuff
