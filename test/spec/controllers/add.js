@@ -1,22 +1,22 @@
 'use strict';
 
-describe('Controller: MainCtrl', function() {
+describe('Controller: AddCtrl', function() {
 
   // load the controller's module
   beforeEach(module('EstimationGameApp'));
 
-  var MainCtrl,
+  var AddCtrl,
     scope;
 
   // Initialize the controller and a mock scope
   beforeEach(inject(function($controller) {
     scope = {};
-    MainCtrl = $controller('MainCtrl', {
+    AddCtrl = $controller('AddCtrl', {
       $scope: scope
     });
   }));
 
-  it('should attach a list of items to the scope', function() {
-    expect(scope.items.length).toBe(0);
+  it('should attach a list of awesomeThings to the scope', function() {
+    expect(scope.awesomeThings.length).toBe(3);
   });
 });
