@@ -1,7 +1,7 @@
 'use strict';
 
 EstimationGameApp.controller('MainCtrl', function($scope) {
-  $scope.awesomeThings = [
+  $scope.roadmapItems = [
     'HTML5 Boilerplate',
     'AngularJS',
     'Testacular'
