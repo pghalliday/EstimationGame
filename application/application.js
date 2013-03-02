@@ -7,6 +7,7 @@ if (Meteor.isClient) {
 
   Template.itemList.events({
     'click button.add': function () {
+    	// TODO: how do i get this under test! There is definitely important logic here
     	if ($.trim($('#name').val()) !== '') {
 			Items.insert({name: $('#name').val(), estimate: $('#estimate').val()});
 			$('#name').val('');
