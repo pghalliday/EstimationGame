@@ -51,7 +51,11 @@
 	<tr>
 		<td>{{name}}</td>
 		<td>{{estimate}}</td>
-		<td><button class="btn"><i class="icon-minus"></i></button></td>
+		<td>
+			{{#if selected}}
+			<button class="btn remove"><i class="icon-minus"></i></button>
+			{{/if}}
+		</td>
 	</tr>
 </template>
 
