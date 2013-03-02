@@ -8,9 +8,6 @@
 	<div id="outer" class="container">
 	  {{> itemList}}
 	</div>
-
-	<script src="http://code.jquery.com/jquery.js"></script>
-	<script src="js/bootstrap.min.js"></script>
 </body>
 
 <template name="itemList">
@@ -22,6 +19,27 @@
 			</tr>
 		</thead>
 		<tbody>
+			<tr>
+				<td><input id="name" type="text" placeholder="Name…"></td>
+				<td>
+					<select id="estimate">
+						<option>0</option>
+						<option>0.5</option>
+						<option>1</option>
+						<option>2</option>
+						<option>3</option>
+						<option>5</option>
+						<option>8</option>
+						<option>13</option>
+						<option>20</option>
+						<option>50</option>
+						<option>100</option>
+						<option>Too Big!</option>
+						<option>No Idea?</option>
+					</select>
+				</td>
+				<td><button class="btn add"><i class="icon-plus"></i></button></td>
+			</tr>
 		    {{#each items}}
 				{{> itemRow}}
 		    {{/each}}
@@ -33,6 +51,7 @@
 	<tr>
 		<td>{{name}}</td>
 		<td>{{estimate}}</td>
+		<td><button class="btn"><i class="icon-minus"></i></button></td>
 	</tr>
 </template>
 

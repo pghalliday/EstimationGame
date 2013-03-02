@@ -10,9 +10,8 @@ To a contributor the simplest question is, given 2 roadmap items, which is bigge
 ## Backlog
 
 * To set up the estimation game first add past, present and future road map items including known details.
-	* allow new items to be added
-	- allow editing of existing items
-	- if no items then display message saying there are no items
+	* allow editing of existing items
+	- allow items to be deleted
 - Next add the actual effort expended on past roadmap items in the desired output units.
 - The estimation game will collect new estimation data by presenting random or algorithmically selected comparisons of roadmap items to the contributors.
 - The estimation game will calculate expected effort estimates based on the simple data collected and previous actual effort submissions.
