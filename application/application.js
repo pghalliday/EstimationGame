@@ -11,6 +11,7 @@ if (Meteor.isClient) {
 			Items.insert({name: $('#name').val(), estimate: $('#estimate').val()});
 			$('#name').val('');
 			$('#estimate').val('');
+			$('#name').focus();
     	}
     }
   });
