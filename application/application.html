@@ -6,31 +6,33 @@
 </head>
 <body>
 	<div id="outer" class="container">
-	  {{> projectList}}
+	  {{> itemList}}
 	</div>
 
 	<script src="http://code.jquery.com/jquery.js"></script>
 	<script src="js/bootstrap.min.js"></script>
 </body>
 
-<template name="projectList">
+<template name="itemList">
 	<table class="table table-hover">
 		<thead>
 			<tr>
-				<th>Project Name</th>
+				<th>Item</th>
+				<th>Estimate</th>
 			</tr>
 		</thead>
 		<tbody>
-		    {{#each projects}}
-				{{> projectRow}}
+		    {{#each items}}
+				{{> itemRow}}
 		    {{/each}}
 		</tbody>
 	</table>
 </template>
 
-<template name="projectRow">
+<template name="itemRow">
 	<tr>
 		<td>{{name}}</td>
+		<td>{{estimate}}</td>
 	</tr>
 </template>
 

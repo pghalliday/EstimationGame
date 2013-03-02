@@ -1,8 +1,8 @@
-Projects = new Meteor.Collection('projects');
+Items = new Meteor.Collection('items');
 
 if (Meteor.isClient) {
-  Template.projectList.projects = function () {
-    return Projects.find({}, {sort: {name: 1}});
+  Template.itemList.items = function () {
+    return Items.find({}, {sort: {name: 1}});
   };
 }
 
